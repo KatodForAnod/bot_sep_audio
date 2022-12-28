@@ -7,13 +7,33 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func main() {
-	log.SetFlags(log.Lshortfile)
+const dirName = "logs"
 
+func LogInit() error {
+	err := os.MkdirAll(dirName, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+
+	fileLogName := time.Now().Format("2006-01-02") + ".txt"
+	f, err := os.OpenFile(dirName+"/"+fileLogName, os.O_RDWR|os.O_CREATE|os.O_APPEND,
+		0666)
+	if err != nil {
+		log.Fatalf("error opening file: %v", err)
+	}
+
+	log.SetOutput(f)
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	return nil
+}
+
+func main() {
 	token := os.Getenv("telegram_token")
 	if token == "" {
 		log.Panic("telegram token is empty")
