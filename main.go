@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -67,7 +68,7 @@ func main() {
 
 			_, err = bot.Send(tgbotapi.NewAudio(int64(update.Message.Chat.ID), file))
 			if err != nil {
-				log.Panic(err)
+				log.Println(err)
 			}
 		}
 	}
@@ -76,31 +77,36 @@ func main() {
 func prepareFile(url string) (tgbotapi.FileBytes, error) {
 	tempDir, err := os.MkdirTemp("", "tempDir")
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "prepareFile", "os.MkdirTemp", err)
 		return tgbotapi.FileBytes{}, err
 	}
 	defer os.RemoveAll(tempDir)
 
 	err = downloadMp3FileYouTube(url, tempDir)
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "prepareFile", "downloadMp3FileYouTube", err)
 		return tgbotapi.FileBytes{}, err
 	}
 
 	fileInfo, err := ioutil.ReadDir(tempDir)
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "prepareFile", "ioutil.ReadDir", err)
 		return tgbotapi.FileBytes{}, err
 	}
 	if len(fileInfo) == 0 {
-		log.Println(err)
-		return tgbotapi.FileBytes{}, errors.New("no files")
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "prepareFile", "ioutil.ReadDir", errors.New("no files"))
+		return tgbotapi.FileBytes{}, err
 	}
 
 	fileName := filepath.Join(tempDir, fileInfo[0].Name())
 	mp3File, err := os.ReadFile(fileName)
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "prepareFile", "os.ReadFile", err)
 		return tgbotapi.FileBytes{}, err
 	}
 
@@ -117,7 +123,8 @@ func downloadMp3FileYouTube(url, dir string) error {
 		"-x", "--audio-format", "mp3", "-o", filepath.Join(dir, "%(title)s.%(ext)s"), url)
 	err := cmd.Run()
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "downloadMp3FileYouTube", "exec.Command", err)
 		return err
 	}
 
