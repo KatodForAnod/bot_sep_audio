@@ -35,6 +35,7 @@ func LogInit() error {
 }
 
 func main() {
+	LogInit()
 	token := os.Getenv("telegram_token")
 	if token == "" {
 		log.Panic("telegram token is empty")
