@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,7 +36,8 @@ func LogInit() error {
 }
 
 func main() {
-	LogInit()
+	//LogInit()
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	token := os.Getenv("telegram_token")
 	if token == "" {
 		log.Panic("telegram token is empty")
@@ -55,24 +57,91 @@ func main() {
 	updates := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		if update.Message != nil { // If we got a message
-			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+		if update.Message == nil {
+			continue
+		}
+		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-			msg.ReplyToMessageID = update.Message.MessageID
-
-			file, err := prepareFile(update.Message.Text)
-			if err != nil {
-				log.Println(err) //send error??
-				continue
-			}
-
-			_, err = bot.Send(tgbotapi.NewAudio(int64(update.Message.Chat.ID), file))
+		file, err := prepareFile(update.Message.Text)
+		if err != nil {
+			log.Println(err)
+			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
+				"something went wrong!"))
+			continue
+		}
+		_, err = bot.Send(tgbotapi.NewAudio(update.Message.Chat.ID, file))
+		if err != nil &&
+			err.Error() == http.StatusText(http.StatusRequestEntityTooLarge) {
+			smallerFiles, err := splitLongMP3(file)
 			if err != nil {
 				log.Println(err)
+				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
+					"something went wrong!"))
+				continue
 			}
+			for _, smallerFile := range smallerFiles {
+				bot.Send(tgbotapi.NewAudio(update.Message.Chat.ID, smallerFile))
+			}
+		} else {
+			log.Println(err)
+			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
+				"something went wrong!"))
 		}
 	}
+}
+
+func splitLongMP3(longMP3 tgbotapi.FileBytes) ([]tgbotapi.FileBytes, error) {
+	tempDir, err := os.MkdirTemp("", "tempDir")
+	if err != nil {
+		log.Println(err)
+		return []tgbotapi.FileBytes{}, err
+	}
+
+	tempFile, err := os.CreateTemp(tempDir, "longAudio.*.mp3")
+	if err != nil {
+		return []tgbotapi.FileBytes{}, err
+	}
+	if _, err := tempFile.Write(longMP3.Bytes); err != nil {
+		log.Fatal(err)
+	}
+	if err := tempFile.Close(); err != nil {
+		log.Fatal(err)
+	}
+
+	err = splitLongAudio(tempDir, tempFile.Name())
+	if err != nil {
+		return nil, err
+	}
+
+	os.Remove(tempFile.Name())
+
+	fileInfo, err := ioutil.ReadDir(tempDir)
+	if err != nil {
+		log.Println(err)
+		return []tgbotapi.FileBytes{}, err
+	}
+	if len(fileInfo) == 0 {
+		log.Println(err)
+		return []tgbotapi.FileBytes{}, err
+	}
+
+	var splitFiles []tgbotapi.FileBytes
+	for _, info := range fileInfo {
+		fileName := filepath.Join(tempDir, info.Name())
+		mp3File, err := os.ReadFile(fileName)
+		if err != nil {
+			log.Println(err)
+			return []tgbotapi.FileBytes{}, err
+		}
+
+		mp3FileBytes := tgbotapi.FileBytes{
+			Name:  info.Name(),
+			Bytes: mp3File,
+		}
+		splitFiles = append(splitFiles, mp3FileBytes)
+	}
+
+	return splitFiles, nil
 }
 
 func prepareFile(url string) (tgbotapi.FileBytes, error) {
@@ -126,6 +195,23 @@ func downloadMp3FileYouTube(url, dir string) error {
 	if err != nil {
 		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
 			"main.go", "downloadMp3FileYouTube", "exec.Command", err)
+		return err
+	}
+
+	return nil
+}
+
+func splitLongAudio(dir, fileName string) error {
+	// ffmpeg -i long.mp3 -acodec copy -vn -f segment -segment_time 30 half%d.mp3
+	fmt.Println("test:", fileName)
+	fmt.Println("test2:", filepath.Join(dir, "%d.mp3"))
+	cmd := exec.Command("ffmpeg", "-i", fileName,
+		"-acodec", "copy", "-vn", "-f", "segment", "-segment_time", "2700", filepath.Join(dir, "%d.mp3"))
+	err := cmd.Run()
+	if err != nil {
+		/*err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+		"main.go", "downloadMp3FileYouTube", "exec.Command", err)*/
+		log.Println(err)
 		return err
 	}
 
