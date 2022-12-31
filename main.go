@@ -80,23 +80,28 @@ func main() {
 func splitLongMP3(longMP3PathFile string) ([]tgbotapi.FileBytes, error) {
 	tempDir, err := os.MkdirTemp("", "tempDir")
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "splitLongMP3", "os.MkdirTemp", err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	defer os.RemoveAll(tempDir)
 
 	err = splitLongAudioCmd(tempDir, longMP3PathFile)
 	if err != nil {
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "splitLongMP3", "splitLongAudioCmd", err)
 		return nil, err
 	}
 
 	fileInfo, err := ioutil.ReadDir(tempDir)
 	if err != nil {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "splitLongMP3", "ioutil.ReadDir", err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	if len(fileInfo) == 0 {
-		log.Println(err)
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "splitLongMP3", "len(fileInfo) == 0", errors.New("no files"))
 		return []tgbotapi.FileBytes{}, err
 	}
 
@@ -105,7 +110,8 @@ func splitLongMP3(longMP3PathFile string) ([]tgbotapi.FileBytes, error) {
 		fileName := filepath.Join(tempDir, info.Name())
 		mp3File, err := os.ReadFile(fileName)
 		if err != nil {
-			log.Println(err)
+			err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+				"main.go", "splitLongMP3", "os.ReadFile", err)
 			return []tgbotapi.FileBytes{}, err
 		}
 
@@ -143,7 +149,7 @@ func prepareFile(url string) ([]tgbotapi.FileBytes, error) {
 	}
 	if len(fileInfo) == 0 {
 		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "prepareFile", "ioutil.ReadDir", errors.New("no files"))
+			"main.go", "prepareFile", "len info", errors.New("no files"))
 		return []tgbotapi.FileBytes{}, err
 	}
 
@@ -189,8 +195,8 @@ func splitLongAudioCmd(dirForSplitAudio, longAudioFilePath string) error {
 		filepath.Join(dirForSplitAudio, "Part %d."+name))
 	err := cmd.Run()
 	if err != nil {
-		/*err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-		"main.go", "downloadMp3FileYouTube", "exec.Command", err)*/
+		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+			"main.go", "splitLongAudioCmd", "exec.Command", err)
 		log.Println(err)
 		return err
 	}
