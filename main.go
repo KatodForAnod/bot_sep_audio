@@ -36,6 +36,11 @@ func LogInit() error {
 }
 
 func main() {
+	log.SetFlags(log.Lshortfile)
+	//https://www.youtube.com/watch?v=kCUwIi7qd2M&t=25s
+	getVideoPartsInfo("https://www.youtube.com/watch?v=YNOExz7gvRU&t=1667s")
+	//getVideoPartsInfo("https://www.youtube.com/watch?v=kCUwIi7qd2M&t=25s")
+	return
 	//LogInit()
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	token := os.Getenv("telegram_token")
@@ -199,6 +204,30 @@ func splitLongAudioCmd(dirForSplitAudio, longAudioFilePath string) error {
 			"main.go", "splitLongAudioCmd", "exec.Command", err)
 		log.Println(err)
 		return err
+	}
+
+	return nil
+}
+
+func splitAudioToPartsCmd(dirForPartsAudio, audioFilePath string, arr []VideoParts) error {
+	// ffmpeg -i input.mp4 -ss 00:10:00 -to 00:20:00 -c copy output2.mp4
+	for i := 0; i < len(arr)-1; i++ {
+		cmd := exec.Command("ffmpeg", "-i", audioFilePath,
+			"-ss", arr[i].Start, "-to", arr[i+1].Start, "-c", "copy",
+			filepath.Join(dirForPartsAudio, arr[i].Name))
+		err := cmd.Run()
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+	}
+
+	cmd := exec.Command("ffmpeg", "-i", audioFilePath,
+		"-ss", arr[len(arr)-1].Start, "-c", "copy",
+		filepath.Join(dirForPartsAudio, arr[len(arr)-1].Name))
+	err := cmd.Run()
+	if err != nil {
+		log.Println(err)
 	}
 
 	return nil
