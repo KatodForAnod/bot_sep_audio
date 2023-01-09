@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bot_sep_audio/parser"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,15 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+type DownloadMod string
+
+const (
+	Common DownloadMod = "common" // download video and convert it to mp3
+	// DescParts download video, convert it to mp3,
+	// download description with timecodes, split mp3 by timecodes
+	DescParts DownloadMod = "parts"
 )
 
 const dirName = "logs"
@@ -36,12 +46,6 @@ func LogInit() error {
 }
 
 func main() {
-	log.SetFlags(log.Lshortfile)
-	//https://www.youtube.com/watch?v=kCUwIi7qd2M&t=25s
-	getVideoPartsInfo("https://www.youtube.com/watch?v=YNOExz7gvRU&t=1667s")
-	//getVideoPartsInfo("https://www.youtube.com/watch?v=kCUwIi7qd2M&t=25s")
-	return
-	//LogInit()
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	token := os.Getenv("telegram_token")
 	if token == "" {
@@ -63,7 +67,7 @@ func main() {
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-		files, err := prepareFile(update.Message.Text)
+		files, err := prepareFile(update.Message.Text, Common)
 		if err != nil {
 			log.Println(err)
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
@@ -82,31 +86,32 @@ func main() {
 	}
 }
 
-func splitLongMP3(longMP3PathFile string) ([]tgbotapi.FileBytes, error) {
+func preparePartsMP3(longMP3PathFile string,
+	splitFunc func(dirForSplitAudio string, mainAudio string) error) ([]tgbotapi.FileBytes, error) {
 	tempDir, err := os.MkdirTemp("", "tempDir")
 	if err != nil {
 		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "splitLongMP3", "os.MkdirTemp", err)
+			"main.go", "preparePartsMP3", "os.MkdirTemp", err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	defer os.RemoveAll(tempDir)
 
-	err = splitLongAudioCmd(tempDir, longMP3PathFile)
+	err = splitFunc(tempDir, longMP3PathFile)
 	if err != nil {
 		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "splitLongMP3", "splitLongAudioCmd", err)
+			"main.go", "preparePartsMP3", "splitLongAudioCmd", err)
 		return nil, err
 	}
 
 	fileInfo, err := ioutil.ReadDir(tempDir)
 	if err != nil {
 		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "splitLongMP3", "ioutil.ReadDir", err)
+			"main.go", "preparePartsMP3", "ioutil.ReadDir", err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	if len(fileInfo) == 0 {
 		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "splitLongMP3", "len(fileInfo) == 0", errors.New("no files"))
+			"main.go", "preparePartsMP3", "len(fileInfo) == 0", errors.New("no files"))
 		return []tgbotapi.FileBytes{}, err
 	}
 
@@ -116,7 +121,7 @@ func splitLongMP3(longMP3PathFile string) ([]tgbotapi.FileBytes, error) {
 		mp3File, err := os.ReadFile(fileName)
 		if err != nil {
 			err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-				"main.go", "splitLongMP3", "os.ReadFile", err)
+				"main.go", "preparePartsMP3", "os.ReadFile", err)
 			return []tgbotapi.FileBytes{}, err
 		}
 
@@ -130,7 +135,7 @@ func splitLongMP3(longMP3PathFile string) ([]tgbotapi.FileBytes, error) {
 	return splitFiles, nil
 }
 
-func prepareFile(url string) ([]tgbotapi.FileBytes, error) {
+func prepareFile(url string, mod DownloadMod) ([]tgbotapi.FileBytes, error) {
 	tempDir, err := os.MkdirTemp("", "tempDir")
 	if err != nil {
 		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
@@ -158,8 +163,8 @@ func prepareFile(url string) ([]tgbotapi.FileBytes, error) {
 		return []tgbotapi.FileBytes{}, err
 	}
 
-	maxSize := 1024 * 1024 * 50
-	if fileInfo[0].Size() < int64(maxSize) {
+	/*maxSize := 1024 * 1024 * 50
+	if fileInfo[0].Size() < int64(maxSize) && mod == common {
 		fileName := filepath.Join(tempDir, fileInfo[0].Name())
 		mp3File, err := os.ReadFile(fileName)
 		if err != nil {
@@ -170,12 +175,30 @@ func prepareFile(url string) ([]tgbotapi.FileBytes, error) {
 		return []tgbotapi.FileBytes{
 			{Name: fileInfo[0].Name(), Bytes: mp3File},
 		}, nil
-	}
+	}*/
 
-	mp3ShortFiles, err := splitLongMP3(filepath.Join(tempDir, fileInfo[0].Name()))
+	splitConfigParts := func(dirForSplitAudio, longAudioFilePath string) error {
+		info, err := parser.GetVideoPartsInfo(url)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		err = splitAudioToPartsCmd(dirForSplitAudio, longAudioFilePath, info)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		return nil
+	}
+	mp3ShortFiles, err := preparePartsMP3(filepath.Join(tempDir, fileInfo[0].Name()), splitConfigParts)
 	if err != nil {
 		return []tgbotapi.FileBytes{}, err
 	}
+
+	/*mp3ShortFiles, err = preparePartsMP3(filepath.Join(tempDir, fileInfo[0].Name()), splitLongAudioCmd)
+	if err != nil {
+		return []tgbotapi.FileBytes{}, err
+	}*/
 
 	return mp3ShortFiles, nil
 }
@@ -189,7 +212,7 @@ func downloadMp3FileYouTube(url, dir string) error {
 			"main.go", "downloadMp3FileYouTube", "exec.Command", err)
 		return err
 	}
-
+	fmt.Println(cmd.String())
 	return nil
 }
 
@@ -209,12 +232,11 @@ func splitLongAudioCmd(dirForSplitAudio, longAudioFilePath string) error {
 	return nil
 }
 
-func splitAudioToPartsCmd(dirForPartsAudio, audioFilePath string, arr []VideoParts) error {
-	// ffmpeg -i input.mp4 -ss 00:10:00 -to 00:20:00 -c copy output2.mp4
+func splitAudioToPartsCmd(dirForPartsAudio, audioFilePath string, arr []parser.VideoParts) error {
 	for i := 0; i < len(arr)-1; i++ {
 		cmd := exec.Command("ffmpeg", "-i", audioFilePath,
 			"-ss", arr[i].Start, "-to", arr[i+1].Start, "-c", "copy",
-			filepath.Join(dirForPartsAudio, arr[i].Name))
+			filepath.Join(dirForPartsAudio, arr[i].Name+".mp3"))
 		err := cmd.Run()
 		if err != nil {
 			log.Println(err)
@@ -224,11 +246,11 @@ func splitAudioToPartsCmd(dirForPartsAudio, audioFilePath string, arr []VideoPar
 
 	cmd := exec.Command("ffmpeg", "-i", audioFilePath,
 		"-ss", arr[len(arr)-1].Start, "-c", "copy",
-		filepath.Join(dirForPartsAudio, arr[len(arr)-1].Name))
+		filepath.Join(dirForPartsAudio, arr[len(arr)-1].Name+".mp3"))
 	err := cmd.Run()
 	if err != nil {
 		log.Println(err)
 	}
-
+	//return error
 	return nil
 }

@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"errors"
@@ -47,7 +47,7 @@ func init() {
 	}
 }
 
-func getVideoPartsInfo(url string) ([]VideoParts, error) {
+func GetVideoPartsInfo(url string) ([]VideoParts, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Print(err)
