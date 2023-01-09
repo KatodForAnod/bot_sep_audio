@@ -2,8 +2,6 @@ package main
 
 import (
 	"bot_sep_audio/parser"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -104,28 +102,24 @@ func preparePartsMP3(longMP3PathFile string,
 	splitFunc func(dirForSplitAudio string, mainAudio string) error) ([]tgbotapi.FileBytes, error) {
 	tempDir, err := os.MkdirTemp("", "tempDir")
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "preparePartsMP3", "os.MkdirTemp", err)
+		log.Println(err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	defer os.RemoveAll(tempDir)
 
 	err = splitFunc(tempDir, longMP3PathFile)
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "preparePartsMP3", "splitLongAudioCmd", err)
+		log.Println(err)
 		return nil, err
 	}
 
 	fileInfo, err := ioutil.ReadDir(tempDir)
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "preparePartsMP3", "ioutil.ReadDir", err)
+		log.Println(err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	if len(fileInfo) == 0 {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "preparePartsMP3", "len(fileInfo) == 0", errors.New("no files"))
+		log.Println(err)
 		return []tgbotapi.FileBytes{}, err
 	}
 
@@ -134,8 +128,7 @@ func preparePartsMP3(longMP3PathFile string,
 		fileName := filepath.Join(tempDir, info.Name())
 		mp3File, err := os.ReadFile(fileName)
 		if err != nil {
-			err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-				"main.go", "preparePartsMP3", "os.ReadFile", err)
+			log.Println(err)
 			return []tgbotapi.FileBytes{}, err
 		}
 
@@ -152,28 +145,24 @@ func preparePartsMP3(longMP3PathFile string,
 func prepareFile(url string, mod DownloadMod) ([]tgbotapi.FileBytes, error) {
 	tempDir, err := os.MkdirTemp("", "tempDir")
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "prepareFile", "os.MkdirTemp", err)
+		log.Println(err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	defer os.RemoveAll(tempDir)
 
 	err = downloadMp3FileYouTube(url, tempDir)
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "prepareFile", "downloadMp3FileYouTube", err)
+		log.Println(err)
 		return []tgbotapi.FileBytes{}, err
 	}
 
 	fileInfo, err := ioutil.ReadDir(tempDir)
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "prepareFile", "ioutil.ReadDir", err)
+		log.Println(err)
 		return []tgbotapi.FileBytes{}, err
 	}
 	if len(fileInfo) == 0 {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "prepareFile", "len info", errors.New("no files"))
+		log.Println(err)
 		return []tgbotapi.FileBytes{}, err
 	}
 
@@ -185,8 +174,7 @@ func prepareFile(url string, mod DownloadMod) ([]tgbotapi.FileBytes, error) {
 			fileName := filepath.Join(tempDir, fileInfo[0].Name())
 			mp3File, err := os.ReadFile(fileName)
 			if err != nil {
-				err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-					"main.go", "prepareFile", "os.ReadFile", err)
+				log.Println(err)
 				return []tgbotapi.FileBytes{}, err
 			}
 			return []tgbotapi.FileBytes{
@@ -225,11 +213,9 @@ func downloadMp3FileYouTube(url, dir string) error {
 		"-x", "--audio-format", "mp3", "-o", filepath.Join(dir, "%(title)s.%(ext)s"), url)
 	err := cmd.Run()
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "downloadMp3FileYouTube", "exec.Command", err)
+		log.Println(err)
 		return err
 	}
-	fmt.Println(cmd.String())
 	return nil
 }
 
@@ -240,8 +226,6 @@ func splitLongAudioCmd(dirForSplitAudio, longAudioFilePath string) error {
 		filepath.Join(dirForSplitAudio, "Part %d."+name))
 	err := cmd.Run()
 	if err != nil {
-		err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-			"main.go", "splitLongAudioCmd", "exec.Command", err)
 		log.Println(err)
 		return err
 	}
