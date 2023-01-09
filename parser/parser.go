@@ -26,7 +26,7 @@ type VideoParts struct {
 
 func init() {
 	var err error
-	videoSettingsSample1, err = regexp.Compile(`(([0-9]*[0-9]:)+[0-9][0-9][^\\][A-z| ]+)`)
+	videoSettingsSample1, err = regexp.Compile(`(([0-9]*[0-9]:)+[0-9][0-9][^\\][A-zА-я| ]+)`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func init() {
 		log.Fatal(err)
 	}
 
-	nameVideoPart, err = regexp.Compile(`[A-z]+`)
+	nameVideoPart, err = regexp.Compile(`[A-zА-я]+`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,8 +91,9 @@ func findVideoPartsTimecodes(str string) ([]VideoParts, error) {
 	var videoPartsArr []VideoParts
 	for s, _ := range hashMap {
 		timeStart := startVideoPart.FindString(s)
-		name := nameVideoPart.FindAllString(s, -1)
-		videoElem := VideoParts{Start: timeStart, Name: strings.Join(name, " ")}
+		nameParts := nameVideoPart.FindAllString(s, -1)
+		name := strings.Replace(strings.Join(nameParts, " "), "\\", "", -1)
+		videoElem := VideoParts{Start: timeStart, Name: name}
 		videoPartsArr = append(videoPartsArr, videoElem)
 	}
 
