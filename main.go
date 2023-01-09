@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -67,7 +68,20 @@ func main() {
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-		files, err := prepareFile(update.Message.Text, Common)
+		command := Common
+		msgText := strings.Split(update.Message.Text, " ")
+		if len(msgText) > 1 {
+			switch msgText[1] {
+			case string(Common):
+				command = Common
+			case string(DescParts):
+				command = DescParts
+			}
+		} else if len(msgText) == 0 {
+			continue
+		}
+
+		files, err := prepareFile(msgText[0], command)
 		if err != nil {
 			log.Println(err)
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
@@ -163,42 +177,45 @@ func prepareFile(url string, mod DownloadMod) ([]tgbotapi.FileBytes, error) {
 		return []tgbotapi.FileBytes{}, err
 	}
 
-	/*maxSize := 1024 * 1024 * 50
-	if fileInfo[0].Size() < int64(maxSize) && mod == common {
-		fileName := filepath.Join(tempDir, fileInfo[0].Name())
-		mp3File, err := os.ReadFile(fileName)
+	var mp3ShortFiles []tgbotapi.FileBytes
+	switch mod {
+	case Common:
+		maxSize := 1024 * 1024 * 50
+		if fileInfo[0].Size() < int64(maxSize) {
+			fileName := filepath.Join(tempDir, fileInfo[0].Name())
+			mp3File, err := os.ReadFile(fileName)
+			if err != nil {
+				err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
+					"main.go", "prepareFile", "os.ReadFile", err)
+				return []tgbotapi.FileBytes{}, err
+			}
+			return []tgbotapi.FileBytes{
+				{Name: fileInfo[0].Name(), Bytes: mp3File},
+			}, nil
+		}
+		mp3ShortFiles, err = preparePartsMP3(filepath.Join(tempDir, fileInfo[0].Name()), splitLongAudioCmd)
 		if err != nil {
-			err = fmt.Errorf("file: %s, func: %s, action: %s, error: %w",
-				"main.go", "prepareFile", "os.ReadFile", err)
 			return []tgbotapi.FileBytes{}, err
 		}
-		return []tgbotapi.FileBytes{
-			{Name: fileInfo[0].Name(), Bytes: mp3File},
-		}, nil
-	}*/
-
-	splitConfigParts := func(dirForSplitAudio, longAudioFilePath string) error {
-		info, err := parser.GetVideoPartsInfo(url)
-		if err != nil {
-			log.Println(err)
-			return err
+	case DescParts:
+		splitConfigParts := func(dirForSplitAudio, longAudioFilePath string) error {
+			info, err := parser.GetVideoPartsInfo(url)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			err = splitAudioToPartsCmd(dirForSplitAudio, longAudioFilePath, info)
+			if err != nil {
+				log.Println(err)
+				return err
+			}
+			return nil
 		}
-		err = splitAudioToPartsCmd(dirForSplitAudio, longAudioFilePath, info)
+		mp3ShortFiles, err = preparePartsMP3(filepath.Join(tempDir, fileInfo[0].Name()), splitConfigParts)
 		if err != nil {
-			log.Println(err)
-			return err
+			return []tgbotapi.FileBytes{}, err
 		}
-		return nil
 	}
-	mp3ShortFiles, err := preparePartsMP3(filepath.Join(tempDir, fileInfo[0].Name()), splitConfigParts)
-	if err != nil {
-		return []tgbotapi.FileBytes{}, err
-	}
-
-	/*mp3ShortFiles, err = preparePartsMP3(filepath.Join(tempDir, fileInfo[0].Name()), splitLongAudioCmd)
-	if err != nil {
-		return []tgbotapi.FileBytes{}, err
-	}*/
 
 	return mp3ShortFiles, nil
 }
