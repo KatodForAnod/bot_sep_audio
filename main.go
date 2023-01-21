@@ -74,6 +74,8 @@ func main() {
 				command = Common
 			case string(DescParts):
 				command = DescParts
+			default:
+				command = Common
 			}
 		} else if len(msgText) == 0 {
 			continue
