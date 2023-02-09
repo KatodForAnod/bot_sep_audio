@@ -2,6 +2,7 @@ package main
 
 import (
 	"bot_sep_audio/parser"
+	"errors"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"io/ioutil"
 	"log"
@@ -9,7 +10,33 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 )
+
+func processChatUpdate(update tgbotapi.Update) ([]tgbotapi.FileBytes, error) {
+	command := Common
+	msgText := strings.Split(update.Message.Text, " ")
+	if len(msgText) > 1 {
+		switch msgText[1] {
+		case string(Common):
+			command = Common
+		case string(DescParts):
+			command = DescParts
+		default:
+			command = Common
+		}
+	} else if len(msgText) == 0 {
+		return []tgbotapi.FileBytes{}, errors.New("empty msg")
+	}
+
+	files, err := prepareFile(msgText[0], command)
+	if err != nil {
+		log.Println(err)
+		return []tgbotapi.FileBytes{}, err
+	}
+
+	return files, nil
+}
 
 func preparePartsMP3(longMP3PathFile string,
 	splitFunc func(dirForSplitAudio string, mainAudio string) error) ([]tgbotapi.FileBytes, error) {

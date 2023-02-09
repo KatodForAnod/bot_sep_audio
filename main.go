@@ -4,7 +4,6 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"os"
-	"strings"
 )
 
 type DownloadMod string
@@ -31,38 +30,20 @@ func main() {
 	u := tgbotapi.NewUpdate(0)
 
 	updates := bot.GetUpdatesChan(u)
-
 	for update := range updates {
 		if update.Message == nil {
 			continue
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-		command := Common
-		msgText := strings.Split(update.Message.Text, " ")
-		if len(msgText) > 1 {
-			switch msgText[1] {
-			case string(Common):
-				command = Common
-			case string(DescParts):
-				command = DescParts
-			default:
-				command = Common
-			}
-		} else if len(msgText) == 0 {
-			continue
-		}
-
-		files, err := prepareFile(msgText[0], command)
+		audioConfigs, err := processChatUpdate(update)
 		if err != nil {
 			log.Println(err)
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
 				"something went wrong!"))
-			continue
 		}
-
-		for _, filesMp3 := range files {
-			_, err = bot.Send(tgbotapi.NewAudio(update.Message.Chat.ID, filesMp3))
+		for _, file := range audioConfigs {
+			_, err = bot.Send(tgbotapi.NewAudio(update.Message.Chat.ID, file))
 			if err != nil {
 				log.Println(err)
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
