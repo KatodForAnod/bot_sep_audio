@@ -1,18 +1,10 @@
 package main
 
 import (
+	"bot_sep_audio/lib"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"log"
 	"os"
-)
-
-type DownloadMod string
-
-const (
-	Common DownloadMod = "common" // download video and convert it to mp3
-	// DescParts download video, convert it to mp3,
-	// download description with timecodes, split mp3 by timecodes
-	DescParts DownloadMod = "parts"
 )
 
 func main() {
@@ -36,14 +28,14 @@ func main() {
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-		audioConfigs, err := processChatUpdate(update)
+		audioConfigs, err := lib.ProcessChatUpdate(update)
 		if err != nil {
 			log.Println(err)
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
 				"something went wrong!"))
 		}
 		for _, file := range audioConfigs {
-			_, err = bot.Send(tgbotapi.NewAudio(update.Message.Chat.ID, file))
+			_, err := bot.Send(tgbotapi.NewAudio(update.Message.Chat.ID, file))
 			if err != nil {
 				log.Println(err)
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,

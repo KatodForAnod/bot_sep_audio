@@ -1,7 +1,6 @@
-package main
+package lib
 
 import (
-	"bot_sep_audio/parser"
 	"errors"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"io/ioutil"
@@ -13,7 +12,16 @@ import (
 	"strings"
 )
 
-func processChatUpdate(update tgbotapi.Update) ([]tgbotapi.FileBytes, error) {
+type DownloadMod string
+
+const (
+	Common DownloadMod = "common" // download video and convert it to mp3
+	// DescParts download video, convert it to mp3,
+	// download description with timecodes, split mp3 by timecodes
+	DescParts DownloadMod = "parts"
+)
+
+func ProcessChatUpdate(update tgbotapi.Update) ([]tgbotapi.FileBytes, error) {
 	command := Common
 	msgText := strings.Split(update.Message.Text, " ")
 	if len(msgText) > 1 {
@@ -127,7 +135,7 @@ func prepareFile(url string, mod DownloadMod) ([]tgbotapi.FileBytes, error) {
 		}
 	case DescParts:
 		splitConfigParts := func(dirForSplitAudio, longAudioFilePath string) error {
-			info, err := parser.GetVideoPartsInfo(url)
+			info, err := GetVideoPartsInfo(url)
 			if err != nil {
 				log.Println(err)
 				return err
@@ -173,7 +181,7 @@ func splitLongAudioCmd(dirForSplitAudio, longAudioFilePath string) error {
 	return nil
 }
 
-func splitAudioToPartsCmd(dirForPartsAudio, audioFilePath string, arr []parser.VideoParts) error {
+func splitAudioToPartsCmd(dirForPartsAudio, audioFilePath string, arr []VideoParts) error {
 	for i := 0; i < len(arr)-1; i++ {
 		cmd := exec.Command("ffmpeg", "-i", audioFilePath,
 			"-ss", arr[i].Start, "-to", arr[i+1].Start, "-c", "copy",
