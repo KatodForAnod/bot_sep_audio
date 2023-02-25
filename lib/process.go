@@ -185,7 +185,7 @@ func splitAudioToPartsCmd(dirForPartsAudio, audioFilePath string, arr []VideoPar
 	for i := 0; i < len(arr)-1; i++ {
 		cmd := exec.Command("ffmpeg", "-i", audioFilePath,
 			"-ss", arr[i].Start, "-to", arr[i+1].Start, "-c", "copy",
-			filepath.Join(dirForPartsAudio, arr[i].Name+".mp3"))
+			filepath.Join(dirForPartsAudio, arr[i].Name+".mp3")) // files can have the same names
 		err := cmd.Run()
 		if err != nil {
 			log.Println(err)
