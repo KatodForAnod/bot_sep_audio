@@ -4,7 +4,7 @@ COPY . .
 RUN go build main.go
 
 FROM ubuntu:latest
-RUN apt update
+RUN apt-get update
 RUN apt install ffmpeg -y
 ENV telegram_token your_token
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
