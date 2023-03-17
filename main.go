@@ -21,21 +21,23 @@ func main() {
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 	u := tgbotapi.NewUpdate(0)
 
+	botEntity := lib.TelegramBot{}
+
 	updates := bot.GetUpdatesChan(u)
 	for update := range updates {
 		if update.Message == nil {
 			continue
 		}
 		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-
-		audioConfigs, err := lib.ProcessChatUpdate(update)
+		result, err := botEntity.ParsePrepareMessage(update)
 		if err != nil {
 			log.Println(err)
 			bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
 				"something went wrong!"))
 		}
-		for _, file := range audioConfigs {
-			_, err := bot.Send(tgbotapi.NewAudio(update.Message.Chat.ID, file))
+
+		for _, file := range result {
+			_, err := bot.Send(file)
 			if err != nil {
 				log.Println(err)
 				bot.Send(tgbotapi.NewMessage(update.Message.Chat.ID,
